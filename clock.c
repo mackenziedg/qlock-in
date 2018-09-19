@@ -227,7 +227,7 @@ int handle_input(sqlite3 *db, int argc, char **argv){
 // create_master_db() creates the master db of projects
 int create_master_db(){
     sqlite3 *mdb;
-    char *create_info_table = "CREATE TABLE IF NOT EXISTS proj_info (id INTEGER PRIMARY KEY, name TEXT NOT NULL, active INTEGER NOT NULL);";
+    char *create_info_table = "CREATE TABLE IF NOT EXISTS proj_info (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, active INTEGER NOT NULL);";
     char *create_temp_table = "INSERT INTO proj_info (name, active) VALUES ('temp', 1);";
     sqlite3_stmt *stmt;
     int e;
