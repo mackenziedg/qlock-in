@@ -162,7 +162,7 @@ char *get_active_project_name(){
         sqlite3_column_text(stmt, 0);
         n = sqlite3_column_bytes(stmt, 0);
         name = malloc(n+1);
-        memcpy(name, (char*)sqlite3_column_text(stmt, 0), n+1);
+        strcpy(name, (char*)sqlite3_column_text(stmt, 0));
     }
     if (e != SQLITE_DONE){
         cleanup(e, stmt, mdb);
@@ -282,7 +282,6 @@ int main(int argc, char **argv){
     if (e != SQLITE_OK){
         return e;
     }
-    printf("Using project %s.\n", name);
     dbpath = malloc(sizeof(name)+3);
     sprintf(dbpath, "%s.db", name);
     free(name);
