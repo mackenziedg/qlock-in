@@ -3,149 +3,108 @@
 #include <stdio.h>
 #include <sqlite3.h>
 #include <time.h>
+#include <unistd.h>
 
+#include "tasks.h"
 #include "task_utils.h"
 
-#define MAX_TASK_NAME_SZ 64
-#define MAX_TASK_DESC_SZ 256
+#define MDB_PATH "./.mdb.db"
+#define MAX_PROJ_NAME_SZ 32
 
-// create_task() creates a new task with a generated id, no start or end time,
-// and a user-set name and description
-int create_task(sqlite3 *db){
-    char name[MAX_TASK_NAME_SZ];
-    char desc[MAX_TASK_DESC_SZ];
-    char *zErrMsg;
+// deactivate_projects() deactivates all projects before
+// adding a new project
+int deactivate_projects(){
+    sqlite3 *mdb;
+    char *zero_actives = "UPDATE proj_info SET active=0";
     sqlite3_stmt *stmt;
-    char *statement = "INSERT INTO task_info (id, name, description) VALUES (@id, @name, @desc);";
-    int e, i, l, id;
+    int e;
 
-    id = get_max_id(db) + 1;
-    printf("Enter a name for the task: ");
-    fgets(name, MAX_TASK_NAME_SZ, stdin);
-    sscanf(name, "%[^\n]s", name);
-    printf("Enter a description for the task: ");
-    fgets(desc, MAX_TASK_DESC_SZ, stdin);
-    sscanf(desc, "%[^\n]s", desc);
-
-    e = sqlite3_prepare_v2(db, statement, -1, &stmt, NULL);
-    if (e != SQLITE_OK){
-        cleanup(e, stmt, db);
+    if ((e = sqlite3_open(MDB_PATH, &mdb)) != SQLITE_OK){
+        fprintf(stderr, "Can't open master database: %s\n", sqlite3_errmsg(mdb));
+        sqlite3_close(mdb);
         return e;
     }
-    i = sqlite3_bind_parameter_index(stmt, "@id");
-    e = sqlite3_bind_int(stmt, i, id);
+    e = sqlite3_prepare_v2(mdb, zero_actives, -1, &stmt, NULL);
     if (e != SQLITE_OK){
-        cleanup(e, stmt, db);
+        cleanup(e, stmt, mdb);
+        return e;
+    }
+    while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
+    }
+    if (e != SQLITE_DONE){
+        cleanup(e, stmt, mdb);
+        return e;
+    }
+
+    sqlite3_finalize(stmt);
+    sqlite3_close(mdb);
+    return 0;
+}
+
+// create_project() creates a new project database
+int create_project(sqlite3 *db){
+    sqlite3 *mdb;
+    char name[MAX_PROJ_NAME_SZ];
+    char *dbpath;
+    char *create_info_table = "CREATE TABLE IF NOT EXISTS task_info"
+                              "(id INTEGER PRIMARY KEY,"
+                              "name TEXT NOT NULL,"
+                              "description TEXT);";
+    char *create_ts_table = "CREATE TABLE IF NOT EXISTS task_ts"
+                            "(id INTEGER NOT NULL,"
+                            "timestamp INTEGER NOT NULL,"
+                            "FOREIGN KEY(id) REFERENCES task_info(id));";
+    char *insert_proj_into_mdb = "INSERT INTO proj_info (name, active)"
+                                 "VALUES (@name, 1);";
+    sqlite3_stmt *stmt;
+    int e, i, l;
+
+    printf("Enter a name for the project: ");
+    fgets(name, MAX_PROJ_NAME_SZ, stdin);
+    sscanf(name, "%[^\n]s", name);
+    sprintf(dbpath, "%s.db", name);
+    if (access(dbpath, F_OK) != -1){
+        fprintf(stderr, "Project %s already exists.", name);
+        return 1;
+    }
+    l = sizeof(name)/sizeof(char);
+
+    // Add the project to the master db
+    if ((e = deactivate_projects()) != SQLITE_OK){
+        cleanup(e, NULL, NULL);
+        return e;
+    }
+    if ((e = sqlite3_open(MDB_PATH, &mdb)) != SQLITE_OK){
+        fprintf(stderr, "Can't open master database: %s\n", sqlite3_errmsg(mdb));
+        sqlite3_close(mdb);
+        return e;
+    }
+    e = sqlite3_prepare_v2(mdb, insert_proj_into_mdb, -1, &stmt, NULL);
+    if (e != SQLITE_OK){
+        cleanup(e, stmt, mdb);
         return e;
     }
     i = sqlite3_bind_parameter_index(stmt, "@name");
-    l = sizeof(name)/sizeof(char);
     e = sqlite3_bind_text(stmt, i, name, l, SQLITE_TRANSIENT);
     if (e != SQLITE_OK){
-        cleanup(e, stmt, db);
-        return e;
-    }
-    i = sqlite3_bind_parameter_index(stmt, "@desc");
-    l = sizeof(desc)/sizeof(char);
-    e = sqlite3_bind_text(stmt, i, desc, l, SQLITE_TRANSIENT);
-    if (e != SQLITE_OK){
-        cleanup(e, stmt, db);
-        return e;
-    }
-    while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
-        printf("Creating new task.\n");
-    }
-    if (e != SQLITE_DONE){
-        cleanup(e, stmt, db);
-        return e;
-    }
-    sqlite3_finalize(stmt);
-    printf("Created task #%d.\n", id);
-    return 0;
-}
-
-// stamp_task() adds a new timestamp for task #id into the task_ts table
-int stamp_task(sqlite3 *db, int id){
-    char *statement = "INSERT INTO task_ts (id, timestamp) VALUES (@id, @ts);";
-    sqlite3_stmt *stmt;
-    int e, i;
-
-    e = sqlite3_prepare_v2(db, statement, -1, &stmt, NULL);
-    if (e != SQLITE_OK){
-        cleanup(e, stmt, db);
-        return e;
-    }
-    i = sqlite3_bind_parameter_index(stmt, "@id");
-    e = sqlite3_bind_int(stmt, i, id);
-    if (e != SQLITE_OK){
-        cleanup(e, stmt, db);
-        return e;
-    }
-    i = sqlite3_bind_parameter_index(stmt, "@ts");
-    e = sqlite3_bind_int(stmt, i, time(NULL));
-    if (e != SQLITE_OK){
-        cleanup(e, stmt, db);
+        cleanup(e, stmt, mdb);
         return e;
     }
     while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
     }
     if (e != SQLITE_DONE){
-        cleanup(e, stmt, db);
+        cleanup(e, stmt, mdb);
         return e;
     }
     sqlite3_finalize(stmt);
-    return 0;
-}
+    sqlite3_close(mdb);
 
-// start_task() starts a specified task. It will throw an error if the task is
-// currently active or does not exist.
-int start_task(sqlite3 *db, int id){
-    int e;
-
-    if (task_exists(db, id) != 1){
-        fprintf(stderr, "Could not start task #%d as it does not exist.\n", id);
-        return 1;
+    // Create the project db file if everything went succesfully
+    if ((e = sqlite3_open(dbpath, &db)) != SQLITE_OK){
+        fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
+        sqlite3_close(db);
+        return e;
     }
-    if (task_is_open(db, id) != 0){
-        fprintf(stderr, "Could not start task #%d as it is currently active.\n", id);
-        return 1;
-    }
-
-    e = stamp_task(db, id);
-    if (e == SQLITE_OK){
-        printf("Started task #%d.\n", id);
-    }
-    return e;
-}
-
-// end_task() ends a specified task. It will throw an error if the task is not
-// currently active or does not exist.
-int end_task(sqlite3 *db, int id){
-    int e;
-
-    if (task_exists(db, id) != 1){
-        fprintf(stderr, "Could not end task #%d as it does not exist.\n", id);
-        return 1;
-    }
-    if (task_is_open(db, id) != 1){
-        fprintf(stderr, "Could not end task #%d as it is not currently active.\n", id);
-        return 1;
-    }
-
-    e = stamp_task(db, id);
-    if (e == SQLITE_OK){
-        printf("Ended task #%d.\n", id);
-    }
-    return e;
-}
-
-// Create a new db at dbpath if one does not exist already. Populate the db
-// with the necessary tables (task_info, task_ts)
-int setup_db(sqlite3 *db){
-    char *create_info_table = "CREATE TABLE IF NOT EXISTS task_info (id INTEGER PRIMARY KEY, name TEXT NOT NULL, description TEXT);";
-    char *create_ts_table = "CREATE TABLE IF NOT EXISTS task_ts (id INTEGER NOT NULL, timestamp INTEGER NOT NULL, FOREIGN KEY(id) REFERENCES task_info(id));";
-    sqlite3_stmt *stmt;
-    int e;
 
     e = sqlite3_prepare_v2(db, create_info_table, -1, &stmt, NULL);
     if (e != SQLITE_OK){
@@ -174,7 +133,44 @@ int setup_db(sqlite3 *db){
         return e;
     }
     sqlite3_finalize(stmt);
+
+    printf("Created project %s.\n", name);
+    printf("Activated project %s.\n", name);
     return 0;
+}
+
+// get_active_project_name() provides the currently active project name
+char *get_active_project_name(){
+    sqlite3 *mdb;
+    char *zero_actives = "SELECT name FROM proj_info WHERE active=1;";
+    sqlite3_stmt *stmt;
+    int e, n;
+    char *name;
+
+    if ((e = sqlite3_open(MDB_PATH, &mdb)) != SQLITE_OK){
+        fprintf(stderr, "Can't open master database: %s\n", sqlite3_errmsg(mdb));
+        sqlite3_close(mdb);
+        return "";
+    }
+    e = sqlite3_prepare_v2(mdb, zero_actives, -1, &stmt, NULL);
+    if (e != SQLITE_OK){
+        cleanup(e, stmt, mdb);
+        return "";
+    }
+    while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
+        sqlite3_column_text(stmt, 0);
+        n = sqlite3_column_bytes(stmt, 0);
+        name = malloc(n+1);
+        memcpy(name, (char*)sqlite3_column_text(stmt, 0), n+1);
+    }
+    if (e != SQLITE_DONE){
+        cleanup(e, stmt, mdb);
+        return "";
+    }
+
+    sqlite3_finalize(stmt);
+    sqlite3_close(mdb);
+    return name;
 }
 
 // handle_input() proccesses the command-line input and passes it to the
@@ -199,23 +195,90 @@ int handle_input(sqlite3 *db, int argc, char **argv){
             }
             break;
         case 3:
-            id = atoi(argv[2]);
             if (strcmp(argv[1], "in") == 0){
+                id = atoi(argv[2]);
                 start_task(db, id);
             } else if (strcmp(argv[1], "out") == 0){
+                id = atoi(argv[2]);
                 end_task(db, id);
             } else if (strcmp(argv[1], "--elapsed")==0|strcmp(argv[1], "-e")==0){
-                int t = get_elapsed_time(db, id);
-                printf("%d\n", t);
+                int t = get_elapsed_time(db, id) / 3600;
+                id = atoi(argv[2]);
+                printf("%d h\n", t);
+            } else if (strcmp(argv[1], "new") == 0){
+                if (strcmp(argv[2], "p") == 0|strcmp(argv[2], "project") == 0){
+                    create_project(db);
+                } else if (strcmp(argv[2], "t") == 0|strcmp(argv[2], "task") == 0){
+                    create_task(db);
+                }
             }
             break;
     }
 }
 
+// create_master_db() creates the master db of projects
+int create_master_db(){
+    sqlite3 *mdb;
+    char *create_info_table = "CREATE TABLE IF NOT EXISTS proj_info (id INTEGER PRIMARY KEY, name TEXT NOT NULL, active INTEGER NOT NULL);";
+    char *create_temp_table = "INSERT INTO proj_info (name, active) VALUES ('temp', 1);";
+    sqlite3_stmt *stmt;
+    int e;
+
+    if ((e = sqlite3_open(MDB_PATH, &mdb)) != SQLITE_OK){
+        fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(mdb));
+        sqlite3_close(mdb);
+        return e;
+    }
+
+    e = sqlite3_prepare_v2(mdb, create_info_table, -1, &stmt, NULL);
+    if (e != SQLITE_OK){
+        cleanup(e, stmt, mdb);
+        return e;
+    }
+    while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
+        printf("Creating project info table.\n");
+    }
+    if (e != SQLITE_DONE){
+        cleanup(e, stmt, mdb);
+        return e;
+    }
+    e = sqlite3_prepare_v2(mdb, create_temp_table, -1, &stmt, NULL);
+    if (e != SQLITE_OK){
+        cleanup(e, stmt, mdb);
+        return e;
+    }
+    while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
+        printf("Creating temp project.\n");
+    }
+    if (e != SQLITE_DONE){
+        cleanup(e, stmt, mdb);
+        return e;
+    }
+    sqlite3_finalize(stmt);
+
+    return 0;
+}
+
 int main(int argc, char **argv){
     sqlite3 *db;
-    char *dbpath = "./clock.db";
     int e, id;
+    char *name;
+    char *dbpath;
+
+    if (access(MDB_PATH, F_OK) == -1){
+        printf("Building master db at %s\n", MDB_PATH);
+        if ((e = create_master_db()) != SQLITE_OK){
+            return e;
+        }
+    }
+    name = get_active_project_name();
+    if (e != SQLITE_OK){
+        return e;
+    }
+    printf("Using project %s.\n", name);
+    dbpath = malloc(sizeof(name)+3);
+    sprintf(dbpath, "%s.db", name);
+    free(name);
 
     if (argc < 2){
         fprintf(stderr, "Must pass at least one parameter.\n");
@@ -223,17 +286,14 @@ int main(int argc, char **argv){
     }
 
     if ((e = sqlite3_open(dbpath, &db)) != SQLITE_OK){
-      fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
-      sqlite3_close(db);
-      return e;
+        fprintf(stderr, "Could not open project %s at path %s.", name, dbpath);
+        return 1;
     }
-    if ((e = setup_db(db)) != 0){
-        sqlite3_close(db);
-        return e;
-    }
-
     handle_input(db, argc, argv);
 
-    sqlite3_close(db);
+    free(dbpath);
+    if (db != NULL){
+        sqlite3_close(db);
+    }
     return 0;
 }
