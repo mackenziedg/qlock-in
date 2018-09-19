@@ -21,7 +21,8 @@ void cleanup(int e, sqlite3_stmt *stmt, sqlite3 *db){
 // This is primarily used to determine if a task is currently open or not.
 int get_num_timestamps(sqlite3 *db, int id){
     sqlite3_stmt *stmt;
-    int e, n, i;
+    int e, i;
+    int n = 0;
     
     char *statement = "SELECT COUNT(*) FROM task_ts WHERE id=@id;";
     e = sqlite3_prepare_v2(db, statement, -1, &stmt, NULL);
@@ -50,7 +51,8 @@ int task_is_open(sqlite3 *db, int id){
 // task_exists() returns 1 if a given task exists
 int task_exists(sqlite3 *db, int id){
     sqlite3_stmt *stmt;
-    int e, n, i;
+    int e, i;
+    int n = 0;
 
     char *statement = "SELECT COUNT(*) FROM task_info WHERE id=@id;";
     e = sqlite3_prepare_v2(db, statement, -1, &stmt, NULL);
@@ -75,7 +77,8 @@ int task_exists(sqlite3 *db, int id){
 int get_max_id(sqlite3 *db){
     char *statement = "SELECT MAX(id) FROM task_info;";
     sqlite3_stmt *stmt;
-    int e, n;
+    int e;
+    int n = -1;
 
     e = sqlite3_prepare_v2(db, statement, -1, &stmt, NULL);
     if (e != SQLITE_OK){

@@ -1,8 +1,11 @@
 CC=gcc
-CFLAGS=--std=c99
+CFLAGS=--std=c99 -Wall
 LFLAGS=-lsqlite3
 
 all: clock
+
+release: CFLAGS += -O3 -DNDEBUG
+release: clock
 
 debug: CFLAGS += -DDEBUG -g
 debug: clock

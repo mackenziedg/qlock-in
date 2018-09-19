@@ -146,7 +146,7 @@ char *get_active_project_name(){
     char *zero_actives = "SELECT name FROM proj_info WHERE active=1;";
     sqlite3_stmt *stmt;
     int e, n;
-    char *name;
+    char *name = malloc(1);
 
     if ((e = sqlite3_open(MDB_PATH, &mdb)) != SQLITE_OK){
         fprintf(stderr, "Can't open master database: %s\n", sqlite3_errmsg(mdb));
@@ -183,7 +183,7 @@ int handle_input(sqlite3 *db, int argc, char **argv){
         case 2:
             if (strcmp(argv[1], "new") == 0){
                 create_task(db);
-            } else if (strcmp(argv[1], "--open")==0|strcmp(argv[1], "-o")==0){
+            } else if ((strcmp(argv[1], "--open")==0)|(strcmp(argv[1], "-o")==0)){
                 int *o;
                 int n;
                 n = get_open_tasks(db, &o);
@@ -202,7 +202,7 @@ int handle_input(sqlite3 *db, int argc, char **argv){
             } else if (strcmp(argv[1], "out") == 0){
                 id = atoi(argv[2]);
                 end_task(db, id);
-            } else if (strcmp(argv[1], "--elapsed")==0|strcmp(argv[1], "-e")==0){
+            } else if ((strcmp(argv[1], "--elapsed")==0)|(strcmp(argv[1], "-e")==0)){
                 id = atoi(argv[2]);
                 int total_secs = get_elapsed_time(db, id);
                 if (total_secs >= 0){
@@ -213,14 +213,15 @@ int handle_input(sqlite3 *db, int argc, char **argv){
                     printf("%d:%d:%d\n", hr, min, sec);
                 }
             } else if (strcmp(argv[1], "new") == 0){
-                if (strcmp(argv[2], "p") == 0|strcmp(argv[2], "project") == 0){
+                if ((strcmp(argv[2], "p")==0)|(strcmp(argv[2], "project")==0)){
                     create_project(db);
-                } else if (strcmp(argv[2], "t") == 0|strcmp(argv[2], "task") == 0){
+                } else if ((strcmp(argv[2], "t")==0)|(strcmp(argv[2], "task")==0)){
                     create_task(db);
                 }
             }
             break;
     }
+    return 0;
 }
 
 // create_master_db() creates the master db of projects
@@ -268,7 +269,7 @@ int create_master_db(){
 
 int main(int argc, char **argv){
     sqlite3 *db;
-    int e, id;
+    int e;
     char *name;
     char *dbpath;
 
@@ -279,9 +280,6 @@ int main(int argc, char **argv){
         }
     }
     name = get_active_project_name();
-    if (e != SQLITE_OK){
-        return e;
-    }
     dbpath = malloc(sizeof(name)+3);
     sprintf(dbpath, "%s.db", name);
     free(name);

@@ -15,7 +15,6 @@
 int create_task(sqlite3 *db){
     char name[MAX_TASK_NAME_SZ];
     char desc[MAX_TASK_DESC_SZ];
-    char *zErrMsg;
     sqlite3_stmt *stmt;
     char *statement = "INSERT INTO task_info (id, name, description) VALUES (@id, @name, @desc);";
     int e, i, l, id;
