@@ -93,6 +93,15 @@ int get_max_id(sqlite3 *db){
     return n;
 }
 
+// print_open_tasks() prints the currently open tasks to stdout.
+int print_open_tasks(sqlite3 *db){
+    for (int id = 0; id <= get_max_id(db); id++){
+        if (task_is_open(db, id)){
+            printf("%d\n", id);
+        }
+    }
+}
+
 // create_task() creates a new task with a generated id, no start or end time,
 // and a user-set name and description
 int create_task(sqlite3 *db){
@@ -270,6 +279,8 @@ int handle_input(sqlite3 *db, int argc, char **argv){
         case 2:
             if (strcmp(argv[1], "new") == 0){
                 create_task(db);
+            } else if (strcmp(argv[1], "--open")==0|strcmp(argv[1], "-o")==0){
+                print_open_tasks(db);
             } else {
                 fprintf(stderr, "Input 'clock %s' not correctly formatted.\n", argv[1]);
             }

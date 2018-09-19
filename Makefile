@@ -1,5 +1,5 @@
 task: clock.c
-	gcc clock.c -o ./clock --std=c99 -lsqlite3 -O3 -Os
+	gcc clock.c -o ./clock --std=c99 -lsqlite3
 
 clean:
 	rm clock *.db
