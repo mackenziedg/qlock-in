@@ -1,4 +1,3 @@
-// FIXME: The SQL statements in this are all trivially open to SQL-injection attacks
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -9,31 +8,35 @@
 #define MAX_TASK_DESC_SZ 256
 #define MAX_STATEMENT_SIZE 512
 
+// cleanup() frees the current statement and db and prints error messages in
+// the case of an error
+void cleanup(int e, sqlite3_stmt *stmt, sqlite3 *db){
+    fprintf(stderr, "SQL error: Error code %d\n", e);
+    fprintf(stderr, "SQL error: Returned %s\n", sqlite3_errmsg(db));
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+}
+
 // get_num_timestamps() returns the number of timestamps for a given task id.
 // This is primarily used to determine if a task is currently open or not.
 int get_num_timestamps(sqlite3 *db, int id){
-    char statement[MAX_STATEMENT_SIZE]; 
     sqlite3_stmt *stmt;
-    int e, n;
-
-    sprintf(statement, "SELECT COUNT(*) FROM task_ts WHERE id=%d;", id);
-
+    int e, n, i;
+    
+    char *statement = "SELECT COUNT(*) FROM task_ts WHERE id=@id;";
     e = sqlite3_prepare_v2(db, statement, -1, &stmt, NULL);
+    i = sqlite3_bind_parameter_index(stmt, "@id");
+    sqlite3_bind_int(stmt, i, id);
     if (e != SQLITE_OK){
-      fprintf(stderr, "SQL error: Error code %d\n", e);
-      fprintf(stderr, "SQL error: Returned %s\n", sqlite3_errmsg(db));
-      sqlite3_close(db);
-      return -1;
+        cleanup(e, stmt, db);
+        return -1;
     }
     while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
         n = sqlite3_column_int(stmt, 0);
     }
     if (e != SQLITE_DONE){
-      fprintf(stderr, "SQL error: Error code %d\n", e);
-      fprintf(stderr, "SQL error: Returned %d\n", e);
-      sqlite3_finalize(stmt);
-      sqlite3_close(db);
-      return -1;
+        cleanup(e, stmt, db);
+        return -1;
     }
     sqlite3_finalize(stmt);
     return n;
@@ -46,28 +49,23 @@ int task_is_open(sqlite3 *db, int id){
 
 // task_exists() returns 1 if a given task exists
 int task_exists(sqlite3 *db, int id){
-    char statement[MAX_STATEMENT_SIZE]; 
     sqlite3_stmt *stmt;
-    int e, n;
+    int e, n, i;
 
-    sprintf(statement, "SELECT COUNT(*) FROM task_info WHERE id=%d;", id);
-
+    char *statement = "SELECT COUNT(*) FROM task_info WHERE id=@id;";
     e = sqlite3_prepare_v2(db, statement, -1, &stmt, NULL);
+    i = sqlite3_bind_parameter_index(stmt, "@id");
+    sqlite3_bind_int(stmt, i, id);
     if (e != SQLITE_OK){
-      fprintf(stderr, "SQL error: Error code %d\n", e);
-      fprintf(stderr, "SQL error: Returned %s\n", sqlite3_errmsg(db));
-      sqlite3_close(db);
-      return -1;
+        cleanup(e, stmt, db);
+        return -1;
     }
     while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
         n = sqlite3_column_int(stmt, 0);
     }
     if (e != SQLITE_DONE){
-      fprintf(stderr, "SQL error: Error code %d\n", e);
-      fprintf(stderr, "SQL error: Returned %d\n", e);
-      sqlite3_finalize(stmt);
-      sqlite3_close(db);
-      return -1;
+        cleanup(e, stmt, db);
+        return -1;
     }
     sqlite3_finalize(stmt);
     return n;
@@ -81,20 +79,15 @@ int get_max_id(sqlite3 *db){
 
     e = sqlite3_prepare_v2(db, statement, -1, &stmt, NULL);
     if (e != SQLITE_OK){
-      fprintf(stderr, "SQL error: Error code %d\n", e);
-      fprintf(stderr, "SQL error: Returned %s\n", sqlite3_errmsg(db));
-      sqlite3_close(db);
-      return e;
+        cleanup(e, stmt, db);
+        return e;
     }
     while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
         n = sqlite3_column_int(stmt, 0);
     }
     if (e != SQLITE_DONE){
-      fprintf(stderr, "SQL error: Error code %d\n", e);
-      fprintf(stderr, "SQL error: Returned %d\n", e);
-      sqlite3_finalize(stmt);
-      sqlite3_close(db);
-      return -1;
+        cleanup(e, stmt, db);
+        return -1;
     }
     sqlite3_finalize(stmt);
     return n;
@@ -106,9 +99,9 @@ int create_task(sqlite3 *db){
     char name[MAX_TASK_NAME_SZ];
     char desc[MAX_TASK_DESC_SZ];
     char *zErrMsg;
-    char statement[MAX_STATEMENT_SIZE];
     sqlite3_stmt *stmt;
-    int e, id;
+    char *statement = "INSERT INTO task_info (id, name, description) VALUES (@id, @name, @desc);";
+    int e, i, l, id;
 
     id = get_max_id(db) + 1;
     printf("Enter a name for the task: ");
@@ -118,104 +111,116 @@ int create_task(sqlite3 *db){
     fgets(desc, MAX_TASK_DESC_SZ, stdin);
     sscanf(desc, "%[^\n]s", desc);
 
-    sprintf(statement, "INSERT INTO task_info (id, name, description) VALUES (%d, '%s', '%s');", id, name, desc);
-
     e = sqlite3_prepare_v2(db, statement, -1, &stmt, NULL);
     if (e != SQLITE_OK){
-      fprintf(stderr, "SQL error: Error code %d\n", e);
-      fprintf(stderr, "SQL error: Returned %s\n", sqlite3_errmsg(db));
-      sqlite3_close(db);
-      return e;
+        cleanup(e, stmt, db);
+        return e;
+    }
+    i = sqlite3_bind_parameter_index(stmt, "@id");
+    e = sqlite3_bind_int(stmt, i, id);
+    if (e != SQLITE_OK){
+        cleanup(e, stmt, db);
+        return e;
+    }
+    i = sqlite3_bind_parameter_index(stmt, "@name");
+    l = sizeof(name)/sizeof(char);
+    e = sqlite3_bind_text(stmt, i, name, l, SQLITE_TRANSIENT);
+    if (e != SQLITE_OK){
+        cleanup(e, stmt, db);
+        return e;
+    }
+    i = sqlite3_bind_parameter_index(stmt, "@desc");
+    l = sizeof(desc)/sizeof(char);
+    e = sqlite3_bind_text(stmt, i, desc, l, SQLITE_TRANSIENT);
+    if (e != SQLITE_OK){
+        cleanup(e, stmt, db);
+        return e;
     }
     while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
         printf("Creating new task.\n");
     }
     if (e != SQLITE_DONE){
-      fprintf(stderr, "SQL error: Error code %d\n", e);
-      fprintf(stderr, "SQL error: Returned %d\n", e);
-      sqlite3_finalize(stmt);
-      sqlite3_close(db);
-      return e;
+        cleanup(e, stmt, db);
+        return e;
     }
     sqlite3_finalize(stmt);
     printf("Created task #%d.\n", id);
     return 0;
 }
 
-// start_task() starts a specified task. It will throw an error if the task is
-// currently active.
-int start_task(sqlite3 *db, int id){
-    char statement[MAX_STATEMENT_SIZE];
+// stamp_task() adds a new timestamp for task #id into the task_ts table
+int stamp_task(sqlite3 *db, int id){
+    char *statement = "INSERT INTO task_ts (id, timestamp) VALUES (@id, @ts);";
     sqlite3_stmt *stmt;
+    int e, i;
+
+    e = sqlite3_prepare_v2(db, statement, -1, &stmt, NULL);
+    if (e != SQLITE_OK){
+        cleanup(e, stmt, db);
+        return e;
+    }
+    i = sqlite3_bind_parameter_index(stmt, "@id");
+    e = sqlite3_bind_int(stmt, i, id);
+    if (e != SQLITE_OK){
+        cleanup(e, stmt, db);
+        return e;
+    }
+    i = sqlite3_bind_parameter_index(stmt, "@ts");
+    e = sqlite3_bind_int(stmt, i, time(NULL));
+    if (e != SQLITE_OK){
+        cleanup(e, stmt, db);
+        return e;
+    }
+    while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
+    }
+    if (e != SQLITE_DONE){
+        cleanup(e, stmt, db);
+        return e;
+    }
+    sqlite3_finalize(stmt);
+    return 0;
+}
+
+// start_task() starts a specified task. It will throw an error if the task is
+// currently active or does not exist.
+int start_task(sqlite3 *db, int id){
     int e;
 
-    if (!task_exists(db, id)){
+    if (task_exists(db, id) != 1){
         fprintf(stderr, "Could not start task #%d as it does not exist.\n", id);
         return 1;
     }
-    if (task_is_open(db, id)){
+    if (task_is_open(db, id) != 0){
         fprintf(stderr, "Could not start task #%d as it is currently active.\n", id);
         return 1;
     }
 
-    sprintf(statement, "INSERT INTO task_ts (id, timestamp) VALUES (%d, %d)", id, time(NULL));
-    e = sqlite3_prepare_v2(db, statement, -1, &stmt, NULL);
-    if (e != SQLITE_OK){
-      fprintf(stderr, "SQL error: Error code %d\n", e);
-      fprintf(stderr, "SQL error: Returned %s\n", sqlite3_errmsg(db));
-      sqlite3_close(db);
-      return e;
+    e = stamp_task(db, id);
+    if (e == SQLITE_OK){
+        printf("Started task #%d.\n", id);
     }
-    while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
-    }
-    if (e != SQLITE_DONE){
-      fprintf(stderr, "SQL error: Error code %d\n", e);
-      fprintf(stderr, "SQL error: Returned %d\n", e);
-      sqlite3_finalize(stmt);
-      sqlite3_close(db);
-      return e;
-    }
-    sqlite3_finalize(stmt);
-    printf("Started task #%d.\n", id);
-    return 0;
+    return e;
 }
 
 // end_task() ends a specified task. It will throw an error if the task is not
-// currently active.
+// currently active or does not exist.
 int end_task(sqlite3 *db, int id){
-    char statement[MAX_STATEMENT_SIZE];
-    sqlite3_stmt *stmt;
     int e;
 
-    if (!task_exists(db, id)){
+    if (task_exists(db, id) != 1){
         fprintf(stderr, "Could not end task #%d as it does not exist.\n", id);
         return 1;
     }
-    if (!task_is_open(db, id)){
+    if (task_is_open(db, id) != 1){
         fprintf(stderr, "Could not end task #%d as it is not currently active.\n", id);
         return 1;
     }
 
-    sprintf(statement, "INSERT INTO task_ts (id, timestamp) VALUES (%d, %d)", id, time(NULL));
-    e = sqlite3_prepare_v2(db, statement, -1, &stmt, NULL);
-    if (e != SQLITE_OK){
-      fprintf(stderr, "SQL error: Error code %d\n", e);
-      fprintf(stderr, "SQL error: Returned %s\n", sqlite3_errmsg(db));
-      sqlite3_close(db);
-      return e;
+    e = stamp_task(db, id);
+    if (e == SQLITE_OK){
+        printf("Ended task #%d.\n", id);
     }
-    while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
-    }
-    if (e != SQLITE_DONE){
-      fprintf(stderr, "SQL error: Error code %d\n", e);
-      fprintf(stderr, "SQL error: Returned %d\n", e);
-      sqlite3_finalize(stmt);
-      sqlite3_close(db);
-      return e;
-    }
-    sqlite3_finalize(stmt);
-    printf("Ended task #%d.\n", id);
-    return 0;
+    return e;
 }
 
 // Create a new db at dbpath if one does not exist already. Populate the db
@@ -228,35 +233,29 @@ int setup_db(sqlite3 *db){
 
     e = sqlite3_prepare_v2(db, create_info_table, -1, &stmt, NULL);
     if (e != SQLITE_OK){
-      fprintf(stderr, "SQL error: Returned %s\n", sqlite3_errmsg(db));
-      sqlite3_close(db);
-      return e;
+        cleanup(e, stmt, db);
+        return e;
     }
     while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
         printf("Creating task info table.\n");
     }
     if (e != SQLITE_DONE){
-      fprintf(stderr, "SQL error: Returned %d\n", e);
-      sqlite3_finalize(stmt);
-      sqlite3_close(db);
-      return e;
+        cleanup(e, stmt, db);
+        return e;
     }
     sqlite3_finalize(stmt);
 
     e = sqlite3_prepare_v2(db, create_ts_table, -1, &stmt, NULL);
     if (e != SQLITE_OK){
-      fprintf(stderr, "SQL error: Returned %s\n", sqlite3_errmsg(db));
-      sqlite3_close(db);
-      return e;
+        cleanup(e, stmt, db);
+        return e;
     }
     while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
         printf("Creating task timestamps table.\n");
     }
     if (e != SQLITE_DONE){
-      fprintf(stderr, "SQL error: Returned %d\n", e);
-      sqlite3_finalize(stmt);
-      sqlite3_close(db);
-      return e;
+        cleanup(e, stmt, db);
+        return e;
     }
     sqlite3_finalize(stmt);
     return 0;
@@ -302,6 +301,7 @@ int main(int argc, char **argv){
       return e;
     }
     if ((e = setup_db(db)) != 0){
+        sqlite3_close(db);
         return e;
     }
 
