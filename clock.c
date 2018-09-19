@@ -187,7 +187,13 @@ int handle_input(sqlite3 *db, int argc, char **argv){
             if (strcmp(argv[1], "new") == 0){
                 create_task(db);
             } else if (strcmp(argv[1], "--open")==0|strcmp(argv[1], "-o")==0){
-                print_open_tasks(db);
+                int *o;
+                int n;
+                n = get_open_tasks(db, &o);
+                for (int i = 0; i < n; i++){
+                    printf("%d\n", o[i]);
+                }
+                free(o);
             } else {
                 fprintf(stderr, "Input 'clock %s' not correctly formatted.\n", argv[1]);
             }
