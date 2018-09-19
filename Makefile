@@ -2,17 +2,17 @@ CC=gcc
 CFLAGS=--std=c99 -Wall
 LFLAGS=-lsqlite3
 
-all: clock
+all: qlock
 
 release: CFLAGS += -O3 -DNDEBUG
-release: clock
+release: qlock
 
 debug: CFLAGS += -DDEBUG -g
-debug: clock
+debug: qlock
 
-clock: clock.c task_utils.c tasks.c
+qlock: main.c task_utils.c tasks.c
 	$(CC) -o $@ $^ $(CFLAGS) $(LFLAGS)
 
 clean:
-	rm clock .?*.db *.db
+	rm qlock .?*.db *.db
 

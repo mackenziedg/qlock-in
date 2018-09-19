@@ -183,7 +183,7 @@ int handle_input(sqlite3 *db, int argc, char **argv){
         case 2:
             if (strcmp(argv[1], "new") == 0){
                 create_task(db);
-            } else if ((strcmp(argv[1], "--open")==0)|(strcmp(argv[1], "-o")==0)){
+            } else if (strcmp(argv[1], "active")==0){
                 int *o;
                 int n;
                 n = get_open_tasks(db, &o);
@@ -202,7 +202,7 @@ int handle_input(sqlite3 *db, int argc, char **argv){
             } else if (strcmp(argv[1], "out") == 0){
                 id = atoi(argv[2]);
                 end_task(db, id);
-            } else if ((strcmp(argv[1], "--elapsed")==0)|(strcmp(argv[1], "-e")==0)){
+            } else if (strcmp(argv[1], "elapsed")==0){
                 id = atoi(argv[2]);
                 int total_secs = get_elapsed_time(db, id);
                 if (total_secs >= 0){
