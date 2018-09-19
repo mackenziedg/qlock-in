@@ -62,6 +62,7 @@ int create_project(sqlite3 *db){
     printf("Enter a name for the project: ");
     fgets(name, MAX_PROJ_NAME_SZ, stdin);
     sscanf(name, "%[^\n]s", name);
+    dbpath = malloc(sizeof(name)+3);
     sprintf(dbpath, "%s.db", name);
     if (access(dbpath, F_OK) != -1){
         fprintf(stderr, "Project %s already exists.", name);
