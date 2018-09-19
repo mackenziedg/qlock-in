@@ -11,5 +11,5 @@ clock: clock.c task_utils.c tasks.c
 	$(CC) -o $@ $^ $(CFLAGS) $(LFLAGS)
 
 clean:
-	rm clock .?*.db
+	rm clock .?*.db *.db
 
