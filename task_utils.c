@@ -124,6 +124,10 @@ int get_elapsed_time(sqlite3 *db, int id){
     int t = 0;
     int c = -1; // We flip the sign of c every row to find the difference between starting and ending times
 
+    if (!task_exists(db, id)){
+        fprintf(stderr, "Task #%d does not exist.\n", id);
+        return -1;
+    }
     e = sqlite3_prepare_v2(db, statement, -1, &stmt, NULL);
     if (e != SQLITE_OK){
         cleanup(e, stmt, db);
