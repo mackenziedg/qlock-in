@@ -65,7 +65,7 @@ int create_project(sqlite3 *db){
     dbpath = malloc(sizeof(name)+3);
     sprintf(dbpath, "%s.db", name);
     if (access(dbpath, F_OK) != -1){
-        fprintf(stderr, "Project %s already exists.", name);
+        fprintf(stderr, "Project %s already exists.\n", name);
         return 1;
     }
     l = sizeof(name)/sizeof(char);
