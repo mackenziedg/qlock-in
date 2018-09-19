@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <sqlite3.h>
+#include <time.h>
 
 #ifndef TASK_UTILS_H
 #define TASK_UTILS_H
@@ -98,4 +99,41 @@ int print_open_tasks(sqlite3 *db){
             printf("%d\n", id);
         }
     }
+}
+
+// get_elapsed_time() returns the current number of seconds the selected task has
+// been active, or -1 if there is an error
+int get_elapsed_time(sqlite3 *db, int id){
+    char *statement = "SELECT * FROM task_ts WHERE id=@id;";
+    sqlite3_stmt *stmt;
+    int e, i;
+    int t = 0;
+    int c = -1; // We flip the sign of c every row to find the difference between starting and ending times
+
+    e = sqlite3_prepare_v2(db, statement, -1, &stmt, NULL);
+    if (e != SQLITE_OK){
+        cleanup(e, stmt, db);
+        return e;
+    }
+    i = sqlite3_bind_parameter_index(stmt, "@id");
+    e = sqlite3_bind_int(stmt, i, id);
+    if (e != SQLITE_OK){
+        cleanup(e, stmt, db);
+        return e;
+    }
+    while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
+        t += c*sqlite3_column_int(stmt, 1);
+        c *= -1;
+    }
+    if (e != SQLITE_DONE){
+        cleanup(e, stmt, db);
+        return -1;
+    }
+    sqlite3_finalize(stmt);
+
+    if (task_is_open(db, id) != 0){
+        t += time(NULL);
+    }
+
+    return t;
 }

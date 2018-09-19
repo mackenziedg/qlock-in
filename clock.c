@@ -198,6 +198,9 @@ int handle_input(sqlite3 *db, int argc, char **argv){
                 start_task(db, id);
             } else if (strcmp(argv[1], "out") == 0){
                 end_task(db, id);
+            } else if (strcmp(argv[1], "--elapsed")==0|strcmp(argv[1], "-e")==0){
+                int t = get_elapsed_time(db, id);
+                printf("%d\n", t);
             }
             break;
     }
