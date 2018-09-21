@@ -10,6 +10,8 @@
 
 #define MDB_PATH "./.mdb.db"
 #define MAX_PROJ_NAME_SZ 32
+#define MAX_TASK_NAME_SZ 64
+#define MAX_TASK_DESC_SZ 256
 
 // deactivate_projects() deactivates all projects before
 // adding a new project
@@ -42,9 +44,8 @@ int deactivate_projects(){
 }
 
 // create_project() creates a new project database
-int create_project(sqlite3 *db){
+int create_project(sqlite3 *db, char* name){
     sqlite3 *mdb;
-    char name[MAX_PROJ_NAME_SZ];
     char *dbpath;
     char *create_info_table = "CREATE TABLE IF NOT EXISTS task_info"
                               "(id INTEGER PRIMARY KEY,"
@@ -59,9 +60,6 @@ int create_project(sqlite3 *db){
     sqlite3_stmt *stmt;
     int e, i, l;
 
-    printf("Enter a name for the project: ");
-    fgets(name, MAX_PROJ_NAME_SZ, stdin);
-    sscanf(name, "%[^\n]s", name);
     dbpath = malloc(sizeof(name)+3);
     sprintf(dbpath, "%s.db", name);
     if (access(dbpath, F_OK) != -1){
@@ -177,13 +175,11 @@ char *get_active_project_name(){
 // handle_input() proccesses the command-line input and passes it to the
 // correct function.
 int handle_input(sqlite3 *db, int argc, char **argv){
-    int id;
+    int e, id;
 
     switch (argc) {
         case 2:
-            if (strcmp(argv[1], "new") == 0){
-                create_task(db);
-            } else if (strcmp(argv[1], "active")==0){
+            if (strcmp(argv[1], "active")==0){
                 int *o;
                 int n;
                 n = get_open_tasks(db, &o);
@@ -198,10 +194,24 @@ int handle_input(sqlite3 *db, int argc, char **argv){
         case 3:
             if (strcmp(argv[1], "in") == 0){
                 id = atoi(argv[2]);
-                start_task(db, id);
+                e = start_task(db, id);
+                if (e == TASK_NOT_EXIST){
+                    fprintf(stderr, "Could not start task #%d as it does not exist.\n", id);
+                } else if (e == TASK_WRONG_STATE){
+                    fprintf(stderr, "Could not start task #%d as it has already been started.\n", id);
+                } else if (e == TASK_OK) {
+                    printf("Started task #%d.\n", id);
+                }
             } else if (strcmp(argv[1], "out") == 0){
                 id = atoi(argv[2]);
-                end_task(db, id);
+                e = end_task(db, id);
+                if (e == TASK_NOT_EXIST){
+                    fprintf(stderr, "Could not end task #%d as it does not exist.\n", id);
+                } else if (e == TASK_WRONG_STATE){
+                    fprintf(stderr, "Could not end task #%d as it has not been started.\n", id);
+                } else if (e == TASK_OK) {
+                    printf("Ended task #%d.\n", id);
+                }
             } else if (strcmp(argv[1], "elapsed")==0){
                 id = atoi(argv[2]);
                 int total_secs = get_elapsed_time(db, id);
@@ -214,9 +224,25 @@ int handle_input(sqlite3 *db, int argc, char **argv){
                 }
             } else if (strcmp(argv[1], "new") == 0){
                 if ((strcmp(argv[2], "p")==0)|(strcmp(argv[2], "project")==0)){
-                    create_project(db);
+                    char name[MAX_PROJ_NAME_SZ];
+                    printf("Enter a name for the project: ");
+                    fgets(name, MAX_PROJ_NAME_SZ, stdin);
+                    sscanf(name, "%[^\n]s", name);
+                    create_project(db, name);
                 } else if ((strcmp(argv[2], "t")==0)|(strcmp(argv[2], "task")==0)){
-                    create_task(db);
+                    char name[MAX_TASK_NAME_SZ];
+                    char desc[MAX_TASK_DESC_SZ];
+                    int id;
+
+                    printf("Enter a name for the task: ");
+                    fgets(name, MAX_TASK_NAME_SZ, stdin);
+                    sscanf(name, "%[^\n]s", name);
+                    printf("Enter a description for the task: ");
+                    fgets(desc, MAX_TASK_DESC_SZ, stdin);
+                    sscanf(desc, "%[^\n]s", desc);
+                    id = create_task(db, name, desc);
+
+                    printf("Created task #%d.\n", id);
                 }
             }
             break;
