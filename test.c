@@ -63,12 +63,13 @@ int neq(int a, int b){
 // char *fmsg -- Message to print on failure (ie. what test is this?)
 void test(sqlite3 *tdb, int (*cmp)(int, int), int a, int b, struct test_results *tr, char *fmsg){
     if((*cmp)(a, b)){
-        fprintf(stderr, ".");
+        fprintf(stderr, "\e[32m.");
         (*tr).p++;
     } else{
-        fprintf(stderr, "\nTest %d failed: %s. Should be %d, got %d\n", tr->n+1, fmsg, b, a);
+        fprintf(stderr, "\n\e[31mTest %d failed: %s. Should be %d, got %d\n", tr->n+1, fmsg, b, a);
     }
     (*tr).n++;
+    fprintf(stderr, "\e[39m");
 }
 
 struct test_results test_tasksH(sqlite3 *tdb){
