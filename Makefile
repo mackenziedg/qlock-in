@@ -1,4 +1,4 @@
-CC=gcc
+CC=clang
 CFLAGS=--std=c99 -Wall
 LFLAGS=-lsqlite3
 

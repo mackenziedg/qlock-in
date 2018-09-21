@@ -106,19 +106,30 @@ int main(int argc, char **argv){
         if ((e = create_master_db(&mdb, MDB_PATH)) != SQLITE_OK){
             return e;
         }
+    } else{
+        if ((e = sqlite3_open(MDB_PATH, &mdb)) != SQLITE_OK){
+            return e;
+        }
     }
     name = get_active_project_name(mdb);
     dbpath = malloc(sizeof(name)+3);
     sprintf(dbpath, "%s.db", name);
-    free(name);
 
     if (argc < 2){
         fprintf(stderr, "Must pass at least one parameter.\n");
+        free(dbpath);
+        free(name);
+        sqlite3_close(db);
+        sqlite3_close(mdb);
         return 1;
     }
 
     if ((e = sqlite3_open(dbpath, &db)) != SQLITE_OK){
         fprintf(stderr, "Could not open project %s at path %s.", name, dbpath);
+        free(dbpath);
+        free(name);
+        sqlite3_close(db);
+        sqlite3_close(mdb);
         return 1;
     }
     handle_input(db, mdb, argc, argv);

@@ -106,11 +106,13 @@ int get_open_tasks(sqlite3 *db, int **o){
             n++;
         }
     }
-    *o = malloc(sizeof(int)*n);
-    for (int id = 0; id <= get_max_id(db); id++){
-        if (task_is_open(db, id)){
-            (*o)[i] = id;
-            i++;
+    if (n > 0){
+        *o = malloc(sizeof(int)*n);
+        for (int id = 0; id <= get_max_id(db); id++){
+            if (task_is_open(db, id)){
+                (*o)[i] = id;
+                i++;
+            }
         }
     }
 

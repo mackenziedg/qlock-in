@@ -54,6 +54,7 @@ int create_project(sqlite3 *db, sqlite3 *mdb, char* name){
     sprintf(dbpath, "%s.db", name);
     if (access(dbpath, F_OK) != -1){
         fprintf(stderr, "Project %s already exists.\n", name);
+        free(dbpath);
         return 1;
     }
     l = sizeof(name)/sizeof(char);
@@ -61,23 +62,27 @@ int create_project(sqlite3 *db, sqlite3 *mdb, char* name){
     // Add the project to the master db
     if ((e = deactivate_projects(mdb)) != SQLITE_OK){
         cleanup(e, NULL, NULL);
+        free(dbpath);
         return e;
     }
     e = sqlite3_prepare_v2(mdb, insert_proj_into_mdb, -1, &stmt, NULL);
     if (e != SQLITE_OK){
         cleanup(e, stmt, mdb);
+        free(dbpath);
         return e;
     }
     i = sqlite3_bind_parameter_index(stmt, "@name");
     e = sqlite3_bind_text(stmt, i, name, l, SQLITE_TRANSIENT);
     if (e != SQLITE_OK){
         cleanup(e, stmt, mdb);
+        free(dbpath);
         return e;
     }
     while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
     }
     if (e != SQLITE_DONE){
         cleanup(e, stmt, mdb);
+        free(dbpath);
         return e;
     }
     sqlite3_finalize(stmt);
@@ -86,18 +91,21 @@ int create_project(sqlite3 *db, sqlite3 *mdb, char* name){
     if ((e = sqlite3_open(dbpath, &db)) != SQLITE_OK){
         fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
         sqlite3_close(db);
+        free(dbpath);
         return e;
     }
 
     e = sqlite3_prepare_v2(db, create_info_table, -1, &stmt, NULL);
     if (e != SQLITE_OK){
         cleanup(e, stmt, db);
+        free(dbpath);
         return e;
     }
     while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
     }
     if (e != SQLITE_DONE){
         cleanup(e, stmt, db);
+        free(dbpath);
         return e;
     }
     sqlite3_finalize(stmt);
@@ -105,15 +113,18 @@ int create_project(sqlite3 *db, sqlite3 *mdb, char* name){
     e = sqlite3_prepare_v2(db, create_ts_table, -1, &stmt, NULL);
     if (e != SQLITE_OK){
         cleanup(e, stmt, db);
+        free(dbpath);
         return e;
     }
     while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
     }
     if (e != SQLITE_DONE){
         cleanup(e, stmt, db);
+        free(dbpath);
         return e;
     }
     sqlite3_finalize(stmt);
+    free(dbpath);
 
     return 0;
 }
@@ -123,26 +134,28 @@ char *get_active_project_name(sqlite3 *mdb){
     char *zero_actives = "SELECT name FROM proj_info WHERE active=1;";
     sqlite3_stmt *stmt;
     int e, n;
-    char *name = malloc(1);
+    char *name;
 
     e = sqlite3_prepare_v2(mdb, zero_actives, -1, &stmt, NULL);
     if (e != SQLITE_OK){
         cleanup(e, stmt, mdb);
         return "";
     }
-    while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
-        sqlite3_column_text(stmt, 0);
-        n = sqlite3_column_bytes(stmt, 0);
-        name = malloc(n+1);
-        strcpy(name, (char*)sqlite3_column_text(stmt, 0));
-    }
-    if (e != SQLITE_DONE){
+    if ((e = sqlite3_step(stmt)) != SQLITE_ROW){
         cleanup(e, stmt, mdb);
+        return "";
+    }
+    sqlite3_column_text(stmt, 0);
+    n = sqlite3_column_bytes(stmt, 0);
+    name = malloc(n+1);
+    strcpy(name, (char*)sqlite3_column_text(stmt, 0));
+    if ((e = sqlite3_step(stmt)) != SQLITE_DONE){
+        cleanup(e, stmt, mdb);
+        free(name);
         return "";
     }
 
     sqlite3_finalize(stmt);
-    sqlite3_close(mdb);
     return name;
 }
 
