@@ -12,73 +12,116 @@ struct test_results{
     int n;
 };
 
-void test_eq(sqlite3 *tdb, int a, int b, struct test_results *tr, char *fmsg){
-    char *output;
+int clear_db(sqlite3 *tdb){
+    sqlite3_stmt *stmt;
+    int e;
+    char *delete_info_table = "DELETE FROM task_info";
+    char *delete_ts_table = "DELETE FROM task_ts";
 
-    if(a != b){
-        output = "failed";
-        fprintf(stderr, "Failure: %s\nShould be %d, got %d\n", fmsg, b, a);
-    } else{
-        output = "succeeded";
-        (*tr).p++;
+    e = sqlite3_prepare_v2(tdb, delete_info_table, -1, &stmt, NULL);
+    if (e != SQLITE_OK){
+        cleanup(e, stmt, tdb);
+        return e;
     }
-    fprintf(stderr, "Test %d %s.\n", ++((*tr).n), output);
+    while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
+    }
+    if (e != SQLITE_DONE){
+        cleanup(e, stmt, tdb);
+        return e;
+    }
+    sqlite3_finalize(stmt);
+
+    e = sqlite3_prepare_v2(tdb, delete_ts_table, -1, &stmt, NULL);
+    if (e != SQLITE_OK){
+        cleanup(e, stmt, tdb);
+        return e;
+    }
+    while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
+    }
+    if (e != SQLITE_DONE){
+        cleanup(e, stmt, tdb);
+        return e;
+    }
+    sqlite3_finalize(stmt);
+
+    return 0;
 }
 
-void test_neq(sqlite3 *tdb, int a, int b, struct test_results *tr, char *fmsg){
-    char *output;
+int eq(int a, int b){
+    return (a == b);
+}
 
-    if(a == b){
-        output = "failed";
-        fprintf(stderr, "Failure: %s\nShould be %d, got %d\n", fmsg, b, a);
-    } else{
-        output = "succeeded";
+int neq(int a, int b){
+    return (a != b);
+}
+
+// test() is the general function for tests.
+// sqlite3 *tdb -- Active database
+// int (*cmp)(int, int) -- Pointer to a comparison function which compares a and b
+// int a, b -- Values to be compared with cmp(a, b)
+// struct test_results *tr -- Pointer to the active test results
+// char *fmsg -- Message to print on failure (ie. what test is this?)
+void test(sqlite3 *tdb, int (*cmp)(int, int), int a, int b, struct test_results *tr, char *fmsg){
+    if((*cmp)(a, b)){
+        fprintf(stderr, ".");
         (*tr).p++;
+    } else{
+        fprintf(stderr, "\nTest %d failed: %s. Should be %d, got %d\n", tr->n+1, fmsg, b, a);
     }
-    fprintf(stderr, "Test %d %s.\n", ++((*tr).n), output);
+    (*tr).n++;
 }
 
 struct test_results test_tasksH(sqlite3 *tdb){
     struct test_results tr = {0, 0};
 
     // Test task creation
-    test_neq(tdb, create_task(tdb, "task name", "task description"), -1, &tr, "Create a new task.");
-    test_neq(tdb, create_task(tdb, "", ""), -1, &tr, "Create a task with empty name/desc.");
-    test_neq(tdb, create_task(tdb, "\0", "\0"), -1, &tr, "Create a task with null name/desc");
+    test(tdb, neq, create_task(tdb, "task name", "task description"), -1, &tr, "Create a new task.");
+    test(tdb, neq, create_task(tdb, "", ""), -1, &tr, "Create a task with empty name/desc.");
+    test(tdb, neq, create_task(tdb, "\0", "\0"), -1, &tr, "Create a task with null name/desc");
     char *desc = calloc(1000000, 1);
     memset(desc, 'A', 70);
-    test_neq(tdb, create_task(tdb, "Long description", desc), -1, &tr, "Create task with very long description"); // TODO: This test_eq passes but the description is not truncated. There's really no reason to actually truncate anything so probably should just remove that restriction anyway
+    test(tdb, neq, create_task(tdb, "Long description", desc), -1, &tr, "Create task with very long description"); // TODO: This test_eq passes but the description is not truncated. There's really no reason to actually truncate anything so probably should just remove that restriction anyway
 
+    clear_db(tdb);
     // Test task starting/stopping
-    test_eq(tdb, start_task(tdb, 1), TASK_OK, &tr, "Start the first task");
-    test_eq(tdb, end_task(tdb, 1), TASK_OK, &tr, "Stop the first task");
-    test_eq(tdb, start_task(tdb, -1), TASK_NOT_EXIST, &tr, "Start a nonexistant task");
-    test_eq(tdb, end_task(tdb, -1), TASK_NOT_EXIST, &tr, "Stop a nonexistant task");
-    test_eq(tdb, end_task(tdb, 1), TASK_WRONG_STATE, &tr, "Stop a task which has not been started");
+    create_task(tdb, "", "");
+    test(tdb, eq, start_task(tdb, 1), TASK_OK, &tr, "Start the first task");
+    test(tdb, eq, end_task(tdb, 1), TASK_OK, &tr, "Stop the first task");
+    test(tdb, eq, start_task(tdb, -1), TASK_NOT_EXIST, &tr, "Start a nonexistant task");
+    test(tdb, eq, end_task(tdb, -1), TASK_NOT_EXIST, &tr, "Stop a nonexistant task");
+    test(tdb, eq, end_task(tdb, 1), TASK_WRONG_STATE, &tr, "Stop a task which has not been started");
     start_task(tdb, 1);
-    test_eq(tdb, start_task(tdb, 1), TASK_WRONG_STATE, &tr, "Start a task which has already been started");
+    test(tdb, eq, start_task(tdb, 1), TASK_WRONG_STATE, &tr, "Start a task which has already been started");
 
+    clear_db(tdb);
     return tr;
 }
 
 struct test_results test_task_utilsH(sqlite3 *tdb){
     struct test_results tr = {0, 0};
 
-    test_eq(tdb, get_max_id(tdb), 0, &tr, "Test if the max_id of an empty project is 0");
+    test(tdb, eq, get_max_id(tdb), 0, &tr, "Test if the max_id of an empty project is 0");
     create_task(tdb, "", "");
-    test_eq(tdb, task_exists(tdb, 1), 1, &tr, "Test if a created task exists.");
-    test_eq(tdb, task_exists(tdb, 2), 0, &tr, "Test if a nonexistant task exists.");
-    test_eq(tdb, get_max_id(tdb), 1, &tr, "Test if the max_id is 1");
-    test_eq(tdb, task_is_open(tdb, 1), 0, &tr, "Test if a closed task is open.");
-    test_eq(tdb, get_num_timestamps(tdb, 1), 0, &tr, "Test if the number of timestamps of the task is 0");
+    test(tdb, eq, task_exists(tdb, 1), 1, &tr, "Test if a created task exists.");
+    test(tdb, eq, task_exists(tdb, 2), 0, &tr, "Test if a nonexistant task exists.");
+    test(tdb, eq, get_max_id(tdb), 1, &tr, "Test if the max_id is 1");
+    test(tdb, eq, task_is_open(tdb, 1), 0, &tr, "Test if a closed task is open.");
+    test(tdb, eq, get_num_timestamps(tdb, 1), 0, &tr, "Test if the number of timestamps of the task is 0");
     start_task(tdb, 1);
-    test_eq(tdb, task_is_open(tdb, 1), 1, &tr, "Test if an open task is open.");
-    test_eq(tdb, get_num_timestamps(tdb, 1), 1, &tr, "Test if the number of timestamps of the task is 0");
-    // TODO: Need to add a way to test the open tasks func
+    test(tdb, eq, task_is_open(tdb, 1), 1, &tr, "Test if an open task is open.");
+    test(tdb, eq, get_num_timestamps(tdb, 1), 1, &tr, "Test if the number of timestamps of the task is 1");
+    end_task(tdb, 1);
     create_task(tdb, "", "");
     start_task(tdb, 2);
     end_task(tdb, 2);
-    test_eq(tdb, get_elapsed_time(tdb, 2), 0, &tr, "Test if the elapsed time is 0"); // This may not e zero possibly?
+    test(tdb, eq, get_elapsed_time(tdb, 2), 0, &tr, "Test if the elapsed time is 0");
+    start_task(tdb, 1);
+    start_task(tdb, 2);
+    int *o;
+    test(tdb, eq, get_open_tasks(tdb, &o), 2, &tr, "Test if two tasks are open");
+    end_task(tdb, 1);
+    end_task(tdb, 2);
+    test(tdb, eq, get_open_tasks(tdb, &o), 0, &tr, "Test if no tasks are open");
 
     return tr;
 }
@@ -136,41 +179,6 @@ int create_project(sqlite3 *db, char* name){
     return 0;
 }
 
-int clear_db(sqlite3 *tdb){
-    sqlite3_stmt *stmt;
-    int e;
-    char *delete_info_table = "DELETE FROM task_info";
-    char *delete_ts_table = "DELETE FROM task_ts";
-
-    e = sqlite3_prepare_v2(tdb, delete_info_table, -1, &stmt, NULL);
-    if (e != SQLITE_OK){
-        cleanup(e, stmt, tdb);
-        return e;
-    }
-    while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
-    }
-    if (e != SQLITE_DONE){
-        cleanup(e, stmt, tdb);
-        return e;
-    }
-    sqlite3_finalize(stmt);
-
-    e = sqlite3_prepare_v2(tdb, delete_ts_table, -1, &stmt, NULL);
-    if (e != SQLITE_OK){
-        cleanup(e, stmt, tdb);
-        return e;
-    }
-    while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
-    }
-    if (e != SQLITE_DONE){
-        cleanup(e, stmt, tdb);
-        return e;
-    }
-    sqlite3_finalize(stmt);
-
-    return 0;
-}
-
 int main(int argc, char **argv){
     sqlite3 *tdb;
     int e;
@@ -189,17 +197,24 @@ int main(int argc, char **argv){
 
     clear_db(tdb);
     tr = test_tasksH(tdb);
-    printf("tasks: %d of %d tests passed.\n\n", tr.p, tr.n);
+    printf("\ntasks: %d of %d tests passed.\n", tr.p, tr.n);
     trt.n += tr.n;
     trt.p += tr.p;
 
-    clear_db(tdb);
     tr = test_task_utilsH(tdb);
-    printf("task_utils: %d of %d tests passed.\n\n", tr.p, tr.n);
+    printf("\ntask_utils: %d of %d tests passed.\n", tr.p, tr.n);
     trt.n += tr.n;
     trt.p += tr.p;
 
-    printf("Total: %d of %d tests passed.\n", trt.p, trt.n);
+    char lines[64];
+    char tot_msg[64];
+    sprintf(tot_msg, "| Total: %d of %d tests passed. |", trt.p, trt.n);
+    memset(lines, '-', 64);
+    lines[strlen(tot_msg)] = '\0';
+
+    printf("\n%s", lines);
+    printf("\n%s", tot_msg);
+    printf("\n%s\n", lines);
     return 0;
 }
 
