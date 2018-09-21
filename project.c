@@ -115,8 +115,6 @@ int create_project(sqlite3 *db, sqlite3 *mdb, char* name){
     }
     sqlite3_finalize(stmt);
 
-    printf("Created project %s.\n", name);
-    printf("Activated project %s.\n", name);
     return 0;
 }
 

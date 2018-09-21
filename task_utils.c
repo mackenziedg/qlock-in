@@ -11,8 +11,7 @@
 // cleanup() frees the current statement and db and prints error messages in
 // the case of an error
 void cleanup(int e, sqlite3_stmt *stmt, sqlite3 *db){
-    fprintf(stderr, "SQL error: Error code %d\n", e);
-    fprintf(stderr, "SQL error: Returned %s\n", sqlite3_errmsg(db));
+    fprintf(stderr, "SQL error: Error code %d -- %s\n", e, sqlite3_errmsg(db));
     sqlite3_finalize(stmt);
     sqlite3_close(db);
 }

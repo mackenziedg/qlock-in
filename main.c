@@ -71,6 +71,8 @@ int handle_input(sqlite3 *db, sqlite3 *mdb, int argc, char **argv){
                     fgets(name, MAX_PROJ_NAME_SZ, stdin);
                     sscanf(name, "%[^\n]s", name);
                     create_project(db, mdb, name);
+                    printf("Created project %s.\n", name);
+                    printf("Activated project %s.\n", name);
                 } else if ((strcmp(argv[2], "t")==0)|(strcmp(argv[2], "task")==0)){
                     char name[MAX_TASK_NAME_SZ];
                     char desc[MAX_TASK_DESC_SZ];
