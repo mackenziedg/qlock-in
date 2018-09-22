@@ -71,9 +71,20 @@ int handle_input(sqlite3 *db, sqlite3 *mdb, int argc, char **argv){
                     printf("Enter a name for the project: ");
                     fgets(name, MAX_PROJ_NAME_SZ, stdin);
                     sscanf(name, "%[^\n]s", name);
-                    create_project(db, mdb, name);
-                    printf("Created project %s.\n", name);
-                    printf("Activated project %s.\n", name);
+                    if ((e = create_project(db, mdb, name)) == 0){
+                        printf("Created project %s.\n", name);
+                        printf("Activated project %s.\n", name);
+                    } else{
+                        switch (e){
+                            case -1:
+                                fprintf(stderr, "Must provide a name for the project.\n");
+
+                                break;
+                            case -2:
+                                fprintf(stderr, "Project %s already exists.\n", name);
+                                break;
+                        }
+                    }
                 } else if ((strcmp(argv[2], "t")==0)|(strcmp(argv[2], "task")==0)){
                     char name[MAX_TASK_NAME_SZ];
                     char desc[MAX_TASK_DESC_SZ];

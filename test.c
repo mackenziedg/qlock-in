@@ -167,13 +167,15 @@ struct test_results test_projectH(sqlite3 *tdb, sqlite3 *tmdb, char *tmdb_path){
     create_master_db(&tmdb, tmdb_path);
     teststr(streq, get_active_project_name(tmdb), "temp", &tr, "Active name should be 'temp'");
     test(eq, create_project(tdb, tmdb, "np"), 0, &tr, "Create a new project");
+    test(eq, create_project(tdb, tmdb, "np"), -2, &tr, "Create a duplicate project");
+    test(eq, create_project(tdb, tmdb, ""), -1, &tr, "Create a project with an empty name");
     teststr(streq, get_active_project_name(tmdb), "np", &tr, "Active project name should be 'np'");
     switch_active_project(tmdb, "temp");
     teststr(streq, get_active_project_name(tmdb), "temp", &tr, "Active name should be 'temp'");
     switch_active_project(tmdb, "nonexistant");
     teststr(streq, get_active_project_name(tmdb), "temp", &tr, "Active name should still be 'temp' since switching to nonexistant project should fail");
     test(eq, project_exists(tmdb, "np"), 1, &tr, "Project should exist.");
-    test(eq, project_exists(tmdb, "nonexist"), 0, &tr, "Project should exist.");
+    test(eq, project_exists(tmdb, "nonexist"), 0, &tr, "Project should not exist.");
     remove("np.db");
 
     remove(tmdb_path);

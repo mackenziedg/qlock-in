@@ -117,12 +117,14 @@ int create_project(sqlite3 *db, sqlite3 *mdb, char* name){
     sqlite3_stmt *stmt;
     int e, i, l;
 
+    if (strlen(name) == 0){
+        return -1;
+    }
     dbpath = malloc(sizeof(name)+3);
     sprintf(dbpath, "%s.db", name);
     if (access(dbpath, F_OK) != -1){
-        fprintf(stderr, "Project %s already exists.\n", name);
         free(dbpath);
-        return 1;
+        return -2;
     }
     l = strlen(name);
 
