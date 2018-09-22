@@ -13,7 +13,7 @@
 // deactivate_projects() deactivates all projects before
 // adding a new project
 int deactivate_projects(sqlite3 *mdb){
-    char *zero_actives = "UPDATE proj_info SET active=0";
+    char *zero_actives = "UPDATE proj_info SET active=0;";
     sqlite3_stmt *stmt;
     int e;
 
