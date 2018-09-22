@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <sqlite3.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -177,9 +179,15 @@ int main(int argc, char **argv){
     sqlite3 *tmdb = NULL;
     struct test_results tr = {0, 0};
     struct test_results trt = {0, 0};
-    char *tmdb_path = "./.tmdb.db";
-    char *name = ".test";
-    char *tdb_path = "./.test.db";
+    char *temp_dir = "./.test";
+    char *tmdb_path = "./.test/.tmdb.db";
+    char *name = ".test/.test";
+    char *tdb_path = "./.test/.test.db";
+    struct stat st = {0};
+
+    if (stat(temp_dir, &st) == -1){
+        mkdir(temp_dir, 0700);
+    }
 
     tr = test_projectH(tdb, tmdb, tmdb_path);
     printf("\nproject: %d of %d tests passed.\n", tr.p, tr.n);
@@ -207,10 +215,12 @@ int main(int argc, char **argv){
     memset(lines, '-', 64);
     lines[strlen(tot_msg)] = '\0';
 
+    // Cleanup
     sqlite3_close(tdb);
     sqlite3_close(tmdb);
     remove(tdb_path);
     remove(tmdb_path);
+    rmdir(temp_dir);
 
     printf("\n%s", lines);
     printf("\n%s", tot_msg);
