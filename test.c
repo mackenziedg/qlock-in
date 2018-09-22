@@ -167,7 +167,9 @@ struct test_results test_projectH(sqlite3 *tdb, sqlite3 *tmdb, char *tmdb_path){
     create_master_db(&tmdb, tmdb_path);
     teststr(streq, get_active_project_name(tmdb), "temp", &tr, "Active name should be 'temp'");
     test(eq, create_project(tdb, tmdb, "np"), 0, &tr, "Create a new project");
-    teststr(streq, get_active_project_name(tmdb), "np", &tr, "Created project should be active");
+    teststr(streq, get_active_project_name(tmdb), "np", &tr, "Active project name should be 'np'");
+    switch_active_project(tmdb, "temp");
+    teststr(streq, get_active_project_name(tmdb), "temp", &tr, "Active name should be 'temp'");
     remove("np.db");
 
     remove(tmdb_path);

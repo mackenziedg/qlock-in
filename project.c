@@ -129,6 +129,38 @@ int create_project(sqlite3 *db, sqlite3 *mdb, char* name){
     return 0;
 }
 
+// switch_active_project() switches the active project to the selected one
+int switch_active_project(sqlite3 *mdb, char *name){
+    char *activate_project = "UPDATE proj_info SET active=1 WHERE name=@name;";
+    sqlite3_stmt *stmt;
+    int e, i, l;
+
+    if ((e = deactivate_projects(mdb)) != SQLITE_OK){
+        cleanup(e, NULL, mdb);
+        return e;
+    }
+    e = sqlite3_prepare_v2(mdb, activate_project, -1, &stmt, NULL);
+    if (e != SQLITE_OK){
+        cleanup(e, stmt, mdb);
+        return e;
+    }
+    l = strlen(name);
+    i = sqlite3_bind_parameter_index(stmt, "@name");
+    e = sqlite3_bind_text(stmt, i, name, l, SQLITE_TRANSIENT);
+    if (e != SQLITE_OK){
+        cleanup(e, stmt, mdb);
+        return e;
+    }
+    while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
+    }
+    if (e != SQLITE_DONE){
+        cleanup(e, stmt, mdb);
+        return e;
+    }
+    sqlite3_finalize(stmt);
+    return 0;
+}
+
 // get_active_project_name() provides the currently active project name
 char *get_active_project_name(sqlite3 *mdb){
     char *zero_actives = "SELECT name FROM proj_info WHERE active=1;";
