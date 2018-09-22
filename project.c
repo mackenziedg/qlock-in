@@ -34,6 +34,38 @@ int deactivate_projects(sqlite3 *mdb){
     return 0;
 }
 
+// project_exists() tests if a given project exists
+int project_exists(sqlite3 *mdb, char *name){
+    char *exists_query = "SELECT COUNT(*) FROM proj_info WHERE name=@name;";
+    sqlite3_stmt *stmt;
+    int e, i, l;
+    int ret = 0;
+    
+    l = strlen(name);
+
+    e = sqlite3_prepare_v2(mdb, exists_query, -1, &stmt, NULL);
+    if (e != SQLITE_OK){
+        cleanup(e, stmt, mdb);
+        return e;
+    }
+    i = sqlite3_bind_parameter_index(stmt, "@name");
+    e = sqlite3_bind_text(stmt, i, name, l, SQLITE_TRANSIENT);
+    if (e != SQLITE_OK){
+        cleanup(e, stmt, mdb);
+        return e;
+    }
+    while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
+        ret = sqlite3_column_int(stmt, 0);
+    }
+    if (e != SQLITE_DONE){
+        cleanup(e, stmt, mdb);
+        return e;
+    }
+    sqlite3_finalize(stmt);
+    
+    return ret;
+}
+
 // create_project() creates a new project database
 int create_project(sqlite3 *db, sqlite3 *mdb, char* name){
     char *dbpath;
@@ -134,6 +166,10 @@ int switch_active_project(sqlite3 *mdb, char *name){
     char *activate_project = "UPDATE proj_info SET active=1 WHERE name=@name;";
     sqlite3_stmt *stmt;
     int e, i, l;
+
+    if (!project_exists(mdb, name)){
+        return -1;
+    }
 
     if ((e = deactivate_projects(mdb)) != SQLITE_OK){
         cleanup(e, NULL, mdb);

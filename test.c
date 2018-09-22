@@ -170,6 +170,10 @@ struct test_results test_projectH(sqlite3 *tdb, sqlite3 *tmdb, char *tmdb_path){
     teststr(streq, get_active_project_name(tmdb), "np", &tr, "Active project name should be 'np'");
     switch_active_project(tmdb, "temp");
     teststr(streq, get_active_project_name(tmdb), "temp", &tr, "Active name should be 'temp'");
+    switch_active_project(tmdb, "nonexistant");
+    teststr(streq, get_active_project_name(tmdb), "temp", &tr, "Active name should still be 'temp' since switching to nonexistant project should fail");
+    test(eq, project_exists(tmdb, "np"), 1, &tr, "Project should exist.");
+    test(eq, project_exists(tmdb, "nonexist"), 0, &tr, "Project should exist.");
     remove("np.db");
 
     remove(tmdb_path);
