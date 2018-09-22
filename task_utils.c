@@ -95,6 +95,7 @@ int get_max_id(sqlite3 *db){
     return n;
 }
 
+// TODO: Have these also return the names of the tasks
 // get_open_tasks() builds an array of the currently open tasks and returns the
 // length of the array
 int get_open_tasks(sqlite3 *db, int **o){
@@ -110,6 +111,30 @@ int get_open_tasks(sqlite3 *db, int **o){
         *o = malloc(sizeof(int)*n);
         for (int id = 0; id <= get_max_id(db); id++){
             if (task_is_open(db, id)){
+                (*o)[i] = id;
+                i++;
+            }
+        }
+    }
+
+    return n;
+}
+
+// TODO: Have these also return the names of the tasks
+// get_all_tasks() builds an array of all tasks and returns the length of the array
+int get_all_tasks(sqlite3 *db, int **o){
+    int n = 0;
+    int i = 0;
+
+    for (int id = 0; id <= get_max_id(db); id++){
+        if (task_exists(db, id)){
+            n++;
+        }
+    }
+    if (n > 0){
+        *o = malloc(sizeof(int)*n);
+        for (int id = 0; id <= get_max_id(db); id++){
+            if (task_exists(db, id)){
                 (*o)[i] = id;
                 i++;
             }

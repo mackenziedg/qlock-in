@@ -228,6 +228,56 @@ char *get_active_project_name(sqlite3 *mdb){
     return name;
 }
 
+// get_all_projects() returns the names of the currently active projects
+int get_all_projects(sqlite3 *mdb, char ***o){
+    sqlite3_stmt *stmt;
+    int e, l;
+    char *get_projects = "SELECT name FROM proj_info;";
+    char *get_project_len = "SELECT COUNT(*) FROM proj_info;";
+    int n = 0;
+
+    e = sqlite3_prepare_v2(mdb, get_project_len, -1, &stmt, NULL);
+    if (e != SQLITE_OK){
+        cleanup(e, stmt, mdb);
+        return -1;
+    }
+    while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
+        n = sqlite3_column_int(stmt, 0);
+    }
+    if (e != SQLITE_DONE){
+        cleanup(e, stmt, mdb);
+        return -1;
+    }
+    sqlite3_finalize(stmt);
+
+    if (n > 0){
+        *o = malloc(n*sizeof(char*));
+    } else{
+        return 0;
+    }
+
+    e = sqlite3_prepare_v2(mdb, get_projects, -1, &stmt, NULL);
+    if (e != SQLITE_OK){
+        cleanup(e, stmt, mdb);
+        return -1;
+    }
+    int i = 0;
+    while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
+        sqlite3_column_text(stmt, 0);
+        l = sqlite3_column_bytes(stmt, 0);
+        (*o)[i] = malloc(l*sizeof(char));
+        strcpy((*o)[i], (char*)sqlite3_column_text(stmt, 0));
+        i++;
+    }
+    if (e != SQLITE_DONE){
+        cleanup(e, stmt, mdb);
+        return -1;
+    }
+    sqlite3_finalize(stmt);
+
+    return n;
+}
+
 // create_master_db() creates the master db of projects
 int create_master_db(sqlite3 **mdb, char *mdb_path){
     char *create_info_table = "CREATE TABLE IF NOT EXISTS proj_info (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, active INTEGER NOT NULL);";

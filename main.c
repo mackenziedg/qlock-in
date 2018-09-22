@@ -18,13 +18,14 @@
 // correct function.
 int handle_input(sqlite3 *db, sqlite3 *mdb, int argc, char **argv){
     int e, id;
+    int *o;
+    char **s;
     char *name;
+    int n = 0;
 
     switch (argc) {
         case 2:
             if (strcmp(argv[1], "active")==0){
-                int *o;
-                int n;
                 n = get_open_tasks(db, &o);
                 for (int i = 0; i < n; i++){
                     printf("%d\n", o[i]);
@@ -107,6 +108,22 @@ int handle_input(sqlite3 *db, sqlite3 *mdb, int argc, char **argv){
                     fprintf(stderr, "Failed to switch to project '%s'--Error %d.\n", name, e);
                 }
                 free(name);
+            } else if (strcmp(argv[1], "list") == 0){
+                if ((strcmp(argv[2], "p")==0)|(strcmp(argv[2], "project")==0)){
+                    if ((n = get_all_projects(mdb, &s)) > 0){
+                        for (int i = 0; i < n; i++){
+                            printf("%s\n", s[i]);
+                        }
+                        free(s);
+                    }
+                } else if ((strcmp(argv[2], "t")==0)|(strcmp(argv[2], "task")==0)){
+                    if ((n = get_all_tasks(db, &o)) > 0){
+                        for (int i = 0; i < n; i++){
+                            printf("%d\n", o[i]);
+                        }
+                        free(o);
+                    }
+                }
             }
             break;
     }
