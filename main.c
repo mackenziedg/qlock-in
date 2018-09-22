@@ -18,6 +18,7 @@
 // correct function.
 int handle_input(sqlite3 *db, sqlite3 *mdb, int argc, char **argv){
     int e, id;
+    char *name;
 
     switch (argc) {
         case 2:
@@ -88,6 +89,13 @@ int handle_input(sqlite3 *db, sqlite3 *mdb, int argc, char **argv){
 
                     printf("Created task #%d.\n", id);
                 }
+            } else if (strcmp(argv[1], "switch") == 0){
+                name = malloc(strlen(argv[2]));
+                strcpy(name, argv[2]);
+                if ((e = switch_active_project(mdb, name)) != 0){
+                    fprintf(stderr, "Failed to switch to project '%s'--Error %d.\n", name, e);
+                }
+                free(name);
             }
             break;
     }

@@ -65,18 +65,54 @@ int project_exists(sqlite3 *mdb, char *name){
     return ret;
 }
 
+// switch_active_project() switches the active project to the selected one
+int switch_active_project(sqlite3 *mdb, char *name){
+    char *activate_project = "UPDATE proj_info SET active=1 WHERE name=@name;";
+    sqlite3_stmt *stmt;
+    int e, i, l;
+
+    if (!project_exists(mdb, name)){
+        return -1;
+    }
+
+    if ((e = deactivate_projects(mdb)) != SQLITE_OK){
+        cleanup(e, NULL, mdb);
+        return e;
+    }
+    e = sqlite3_prepare_v2(mdb, activate_project, -1, &stmt, NULL);
+    if (e != SQLITE_OK){
+        cleanup(e, stmt, mdb);
+        return e;
+    }
+    l = strlen(name);
+    i = sqlite3_bind_parameter_index(stmt, "@name");
+    e = sqlite3_bind_text(stmt, i, name, l, SQLITE_TRANSIENT);
+    if (e != SQLITE_OK){
+        cleanup(e, stmt, mdb);
+        return e;
+    }
+    while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
+    }
+    if (e != SQLITE_DONE){
+        cleanup(e, stmt, mdb);
+        return e;
+    }
+    sqlite3_finalize(stmt);
+    return 0;
+}
+
 // create_project() creates a new project database
 int create_project(sqlite3 *db, sqlite3 *mdb, char* name){
     char *dbpath;
-    char *create_info_table = "CREATE TABLE IF NOT EXISTS task_info"
-                              "(id INTEGER PRIMARY KEY,"
-                              "name TEXT NOT NULL,"
+    char *create_info_table = "CREATE TABLE IF NOT EXISTS task_info "
+                              "(id INTEGER PRIMARY KEY, "
+                              "name TEXT NOT NULL, "
                               "description TEXT);";
-    char *create_ts_table = "CREATE TABLE IF NOT EXISTS task_ts"
-                            "(id INTEGER NOT NULL,"
-                            "timestamp INTEGER NOT NULL,"
+    char *create_ts_table = "CREATE TABLE IF NOT EXISTS task_ts "
+                            "(id INTEGER NOT NULL, "
+                            "timestamp INTEGER NOT NULL, "
                             "FOREIGN KEY(id) REFERENCES task_info(id));";
-    char *insert_proj_into_mdb = "INSERT INTO proj_info (name, active)"
+    char *insert_proj_into_mdb = "INSERT INTO proj_info (name, active) "
                                  "VALUES (@name, 1);";
     sqlite3_stmt *stmt;
     int e, i, l;
@@ -157,42 +193,6 @@ int create_project(sqlite3 *db, sqlite3 *mdb, char* name){
     sqlite3_finalize(stmt);
     free(dbpath);
 
-    return 0;
-}
-
-// switch_active_project() switches the active project to the selected one
-int switch_active_project(sqlite3 *mdb, char *name){
-    char *activate_project = "UPDATE proj_info SET active=1 WHERE name=@name;";
-    sqlite3_stmt *stmt;
-    int e, i, l;
-
-    if (!project_exists(mdb, name)){
-        return -1;
-    }
-
-    if ((e = deactivate_projects(mdb)) != SQLITE_OK){
-        cleanup(e, NULL, mdb);
-        return e;
-    }
-    e = sqlite3_prepare_v2(mdb, activate_project, -1, &stmt, NULL);
-    if (e != SQLITE_OK){
-        cleanup(e, stmt, mdb);
-        return e;
-    }
-    l = strlen(name);
-    i = sqlite3_bind_parameter_index(stmt, "@name");
-    e = sqlite3_bind_text(stmt, i, name, l, SQLITE_TRANSIENT);
-    if (e != SQLITE_OK){
-        cleanup(e, stmt, mdb);
-        return e;
-    }
-    while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
-    }
-    if (e != SQLITE_DONE){
-        cleanup(e, stmt, mdb);
-        return e;
-    }
-    sqlite3_finalize(stmt);
     return 0;
 }
 
