@@ -57,7 +57,7 @@ int create_project(sqlite3 *db, sqlite3 *mdb, char* name){
         free(dbpath);
         return 1;
     }
-    l = sizeof(name)/sizeof(char);
+    l = strlen(name);
 
     // Add the project to the master db
     if ((e = deactivate_projects(mdb)) != SQLITE_OK){
