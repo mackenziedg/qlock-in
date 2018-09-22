@@ -30,7 +30,6 @@ int deactivate_projects(sqlite3 *mdb){
     }
 
     sqlite3_finalize(stmt);
-    sqlite3_close(mdb);
     return 0;
 }
 
