@@ -2,7 +2,7 @@ CC=clang
 CFLAGS=--std=c99 -Wall
 LFLAGS=-lsqlite3
 
-all: qlock
+all: release
 
 release: CFLAGS += -O3 -DNDEBUG
 release: qlock
