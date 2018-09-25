@@ -143,7 +143,7 @@ struct test_results test_task_utilsH(sqlite3 *tdb){
     create_task(tdb, "", "");
     start_task(tdb, 2);
     end_task(tdb, 2);
-    test(eq, get_elapsed_time(tdb, 2), 0, &tr, "Test if the elapsed time is 0");
+    test(eq, print_elapsed_breakdown(tdb, 2), 0, &tr, "Test if printing elapsed breakdown returns 0.");
     start_task(tdb, 1);
     start_task(tdb, 2);
     int *o;
@@ -192,13 +192,17 @@ int main(int argc, char **argv){
     char *name = ".test/.test";
     char *tdb_path = "./.test/.test.db";
     struct stat st = {0};
+    // Send stdout to /dev/null to avoid printing test side-effects
+    /* int oldstdout = dup(1); */
+    freopen ("/dev/null", "w", stdout);
+    fclose(stdout);
 
     if (stat(temp_dir, &st) == -1){
         mkdir(temp_dir, 0700);
     }
 
     tr = test_projectH(tdb, tmdb, tmdb_path);
-    printf("\nproject: %d of %d tests passed.\n", tr.p, tr.n);
+    fprintf(stderr, "\nproject: %d of %d tests passed.\n", tr.p, tr.n);
     trt.n += tr.n;
     trt.p += tr.p;
 
@@ -208,12 +212,12 @@ int main(int argc, char **argv){
 
     clear_db(tdb);
     tr = test_tasksH(tdb);
-    printf("\ntasks: %d of %d tests passed.\n", tr.p, tr.n);
+    fprintf(stderr, "\ntasks: %d of %d tests passed.\n", tr.p, tr.n);
     trt.n += tr.n;
     trt.p += tr.p;
 
     tr = test_task_utilsH(tdb);
-    printf("\ntask_utils: %d of %d tests passed.\n", tr.p, tr.n);
+    fprintf(stderr, "\ntask_utils: %d of %d tests passed.\n", tr.p, tr.n);
     trt.n += tr.n;
     trt.p += tr.p;
 
@@ -230,9 +234,9 @@ int main(int argc, char **argv){
     remove(tmdb_path);
     rmdir(temp_dir);
 
-    printf("\n%s", lines);
-    printf("\n%s", tot_msg);
-    printf("\n%s\n", lines);
+    fprintf(stderr, "\n%s", lines);
+    fprintf(stderr, "\n%s", tot_msg);
+    fprintf(stderr, "\n%s\n", lines);
     return 0;
 }
 
