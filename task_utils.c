@@ -205,16 +205,23 @@ int print_elapsed_breakdown(sqlite3 *db, int id){
     }
 
     // FIXME: This will not accurately count if a task starts one day and runs through to the next day (ie. working over midnight)
+    int n = 0;
     for (j = 0; j < num_ts; j++){
         if ((is_same_day(dates[j+1], dates[j])) && (j != num_ts)){
             elapsed += timestamps[j+1]-timestamps[j];
+            n++;
         } else{
+            if (n%2==0){
+                // Mod check seems backwards but it's because we skip incrementing n the last time
+                elapsed += time(NULL) - timestamps[j];
+            }
             hr = elapsed/3600;
             min = (elapsed-hr*3600)/60;
             sec = elapsed-(hr*3600+min*60);
             printf("%d-%d-%d: %02d:%02d:%02d\n", dates[j].tm_year+1900, dates[j].tm_mon, dates[j].tm_mday, hr, min, sec);
             total_elapsed += elapsed;
             elapsed = 0;
+            n = 0;
         }
     }
     hr = total_elapsed/3600;
