@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <sqlite3.h>
 #include <time.h>
 
@@ -144,14 +145,31 @@ int get_all_tasks(sqlite3 *db, int **o){
     return n;
 }
 
-// get_elapsed_time() returns the current number of seconds the selected task has
-// been active, or -1 if there is an error
-int get_elapsed_time(sqlite3 *db, int id){
+// is_same_day() returns true if the two times occur on the same year, month, and day
+int is_same_day(struct tm a, struct tm b){
+    return ((a.tm_year == b.tm_year) &&
+            (a.tm_mon  == b.tm_mon)  &&
+            (a.tm_mday == b.tm_mday));
+}
+
+// print_elapsed_breakdown() breaksdown the tracked time by day
+// TODO: Change this to return the values to be printed elsewhere
+int print_elapsed_breakdown(sqlite3 *db, int id){
     char *statement = "SELECT * FROM task_ts WHERE id=@id;";
     sqlite3_stmt *stmt;
     int e, i;
-    int t = 0;
-    int c = -1; // We flip the sign of c every row to find the difference between starting and ending times
+    time_t rawtime;
+    struct tm *ltime;
+    int hr, min, sec;
+    int j = 0;
+    int elapsed = 0;
+    int total_elapsed = 0;
+    int num_ts = get_num_timestamps(db, id);
+    if (num_ts <= 0){
+        return -1;
+    }
+    struct tm dates[num_ts];
+    int timestamps[num_ts];
 
     if (!task_exists(db, id)){
         fprintf(stderr, "Task #%d does not exist.\n", id);
@@ -169,18 +187,40 @@ int get_elapsed_time(sqlite3 *db, int id){
         return e;
     }
     while ((e = sqlite3_step(stmt)) == SQLITE_ROW){
-        t += c*sqlite3_column_int(stmt, 1);
-        c *= -1;
+        rawtime = sqlite3_column_int(stmt, 1);
+        ltime = localtime(&rawtime);
+        dates[j] = *ltime;
+        timestamps[j] = rawtime;
+        j++;
     }
     if (e != SQLITE_DONE){
         cleanup(e, stmt, db);
         return -1;
     }
     sqlite3_finalize(stmt);
-
-    if (task_is_open(db, id) != 0){
-        t += time(NULL);
+    // If we didn't read any lines in, return
+    if (j == 0){
+        cleanup(1, NULL, db);
+        return -1;
     }
 
-    return t;
+    // FIXME: This will not accurately count if a task starts one day and runs through to the next day (ie. working over midnight)
+    for (j = 0; j < num_ts; j++){
+        if ((is_same_day(dates[j+1], dates[j])) && (j != num_ts)){
+            elapsed += timestamps[j+1]-timestamps[j];
+        } else{
+            hr = elapsed/3600;
+            min = (elapsed-hr*3600)/60;
+            sec = elapsed-(hr*3600+min*60);
+            printf("%d-%d-%d: %02d:%02d:%02d\n", dates[j].tm_year+1900, dates[j].tm_mon, dates[j].tm_mday, hr, min, sec);
+            total_elapsed += elapsed;
+            elapsed = 0;
+        }
+    }
+    hr = total_elapsed/3600;
+    min = (total_elapsed-hr*3600)/60;
+    sec = total_elapsed-(hr*3600+min*60);
+    printf("-----------\nTotal: %02d:%02d:%02d\n", hr, min, sec);
+
+    return 0;
 }

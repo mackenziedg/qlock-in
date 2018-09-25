@@ -58,14 +58,7 @@ int handle_input(sqlite3 *db, sqlite3 *mdb, int argc, char **argv){
                 }
             } else if (strcmp(argv[1], "elapsed")==0){
                 id = atoi(argv[2]);
-                int total_secs = get_elapsed_time(db, id);
-                if (total_secs >= 0){
-                    int hr, min, sec;
-                    hr = total_secs/3600;
-                    min = (total_secs-hr*3600)/60;
-                    sec = total_secs-(hr*3600+min*60);
-                    printf("%d:%d:%d\n", hr, min, sec);
-                }
+                print_elapsed_breakdown(db, id);
             } else if (strcmp(argv[1], "new") == 0){
                 if ((strcmp(argv[2], "p")==0)|(strcmp(argv[2], "project")==0)){
                     char name[MAX_PROJ_NAME_SZ];
