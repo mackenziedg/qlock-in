@@ -218,7 +218,7 @@ int print_elapsed_breakdown(sqlite3 *db, int id){
             hr = elapsed/3600;
             min = (elapsed-hr*3600)/60;
             sec = elapsed-(hr*3600+min*60);
-            printf("%d-%d-%d: %02d:%02d:%02d\n", dates[j].tm_year+1900, dates[j].tm_mon, dates[j].tm_mday, hr, min, sec);
+            printf("%d-%d-%d: %02d:%02d:%02d\n", dates[j].tm_year+1900, dates[j].tm_mon+1, dates[j].tm_mday, hr, min, sec);
             total_elapsed += elapsed;
             elapsed = 0;
             n = 0;
