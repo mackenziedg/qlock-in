@@ -207,10 +207,12 @@ int print_elapsed_breakdown(sqlite3 *db, int id){
     // FIXME: This will not accurately count if a task starts one day and runs through to the next day (ie. working over midnight)
     int n = 0;
     for (j = 0; j < num_ts; j++){
-        if ((is_same_day(dates[j+1], dates[j])) && (j != num_ts) && (j%2==0)){
-            elapsed += timestamps[j+1]-timestamps[j];
+        if ((is_same_day(dates[j+1], dates[j])) && (j != num_ts)){
+            if (n%2==0){
+                elapsed += timestamps[j+1]-timestamps[j];
+            }
             n++;
-        } else if(!is_same_day(dates[j+1], dates[j])){ // TODO: Not a big fan of this
+        } else{
             if (n%2==0){
                 // Mod check seems backwards but it's because we skip incrementing n the last time
                 elapsed += time(NULL) - timestamps[j];
